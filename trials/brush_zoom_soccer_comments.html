@@ -3,7 +3,7 @@
 <style>
 
 .area {
-  fill: steelblue;
+  fill: #FF4500;
   clip-path: url(#clip);
 }
 
@@ -11,6 +11,19 @@
   cursor: move;
   fill: none;
   pointer-events: all;
+}
+
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 60px;
+    height: 28px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: lightsteelblue;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
 }
 
 </style>
@@ -21,9 +34,9 @@
 var svg = d3.select("svg"),
     margin = {top: 20, right: 20, bottom: 110, left: 40},
     margin2 = {top: 430, right: 20, bottom: 30, left: 40},
-    width = +svg.attr("width") - margin.left - margin.right,
-    height = +svg.attr("height") - margin.top - margin.bottom,
-    height2 = +svg.attr("height") - margin2.top - margin2.bottom;
+    width = svg.attr("width") - margin.left - margin.right,
+    height = svg.attr("height") - margin.top - margin.bottom,
+    height2 = svg.attr("height") - margin2.top - margin2.bottom;
 
 var parseDate = d3.timeParse("%x %H:00");
 
@@ -41,7 +54,7 @@ var brush = d3.brushX()
     .on("brush end", brushed);
 
 var zoom = d3.zoom()
-    .scaleExtent([1, Infinity])
+    .scaleExtent([1, 90])
     .translateExtent([[0, 0], [width, height]])
     .extent([[0, 0], [width, height]])
     .on("zoom", zoomed);
@@ -51,6 +64,12 @@ var area = d3.area()
     .x(function(d) { return x(d.date); })
     .y0(height)
     .y1(function(d) { return y(d.submissions); });
+
+var areat = d3.area()
+    .curve(d3.curveMonotoneX)
+    .x(function(d) { return x(d.date); })
+    .y0(height)
+    .y1(function(d) { return y(d.submissions*0.2); });
 
 var area2 = d3.area()
     .curve(d3.curveMonotoneX)
@@ -85,6 +104,39 @@ d3.csv("soccer_sub.csv", type, function(error, data) {
       .attr("class", "area")
       .attr("d", area);
 
+  focus.append("path")
+      .datum(data)
+      .attr("class", "areat")
+      .attr("d", areat);
+
+  focus.append("rect")
+      .attr("class", "zoom")
+      .attr("width", width)
+      .attr("height", height)
+      .style("fill", "rgba(255,0,0,.25)")
+      .call(zoom);
+
+  focus.selectAll(".dot")
+      .data(data)
+      .enter().append("circle")
+      .attr("class", "dot")
+      .attr("r", 3.5)
+      .attr("cx", function(d) { return x(d.date);})
+      .attr("cy", function(d) { return y(d.submissions);})
+      .on("mouseover", function(d) {
+          div.transition()
+              .duration(200)
+              .style("opacity", .9);
+          div	.html(d.date + "<br/>")
+              .style("left", (d3.event.pageX) + "px")
+              .style("top", (d3.event.pageY - 28) + "px");
+          })
+      .on("mouseout", function(d) {
+          div.transition()
+              .duration(500)
+              .style("opacity", 0);
+      });
+
   focus.append("g")
       .attr("class", "axis axis--x")
       .attr("transform", "translate(0," + height + ")")
@@ -109,37 +161,48 @@ d3.csv("soccer_sub.csv", type, function(error, data) {
       .call(brush)
       .call(brush.move, x.range());
 
-  svg.append("rect")
-      .attr("class", "zoom")
-      .attr("width", width)
-      .attr("height", height)
-      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-      .call(zoom);
+  // Define the div for the tooltip
+  var div = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
 });
 
 function brushed() {
   if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
   var s = d3.event.selection || x2.range();
   x.domain(s.map(x2.invert, x2));
-  focus.select(".area").attr("d", area);
-  focus.select(".axis--x").call(xAxis);
   svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
       .scale(width / (s[1] - s[0]))
       .translate(-s[0], 0));
+
+  update()
 }
 
 function zoomed() {
   if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
   var t = d3.event.transform;
   x.domain(t.rescaleX(x2).domain());
+  context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+
+  update()
+}
+
+function update() {
   focus.select(".area").attr("d", area);
   focus.select(".axis--x").call(xAxis);
-  context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+  focus.select(".areat").attr("d", areat);
+
+  focus.selectAll(".dot")
+    .attr("cx", function(d) { return x(d.date);})
+    .attr("cy", function(d) { return y(d.submissions);})
+
 }
 
 function type(d) {
   d.date = parseDate(d.date);
-  d.submissions = +d.submissions;
+  d.post_title =
+  d.submissions = parseFloat(d.submissions);
   return d;
 }
 
