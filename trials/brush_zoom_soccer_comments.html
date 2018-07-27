@@ -3,7 +3,11 @@
 <style>
 
 .area {
-  fill: #FF4500;
+  fill: #24A0ED;
+  clip-path: url(#clip);
+}
+
+.dot {
   clip-path: url(#clip);
 }
 
@@ -16,14 +20,15 @@
 div.tooltip {
     position: absolute;
     text-align: center;
-    width: 60px;
-    height: 28px;
-    padding: 2px;
+    width: 120px;
+    /*height: 30px;*/
+    padding: 10px;
     font: 12px sans-serif;
-    background: lightsteelblue;
+    background: #0079D3;
     border: 0px;
     border-radius: 8px;
     pointer-events: none;
+    color: white;
 }
 
 </style>
@@ -39,6 +44,9 @@ var svg = d3.select("svg"),
     height2 = svg.attr("height") - margin2.top - margin2.bottom;
 
 var parseDate = d3.timeParse("%x %H:00");
+
+window.parseDate = parseDate;
+console.log(d3);
 
 var x = d3.scaleTime().range([0, width]),
     x2 = d3.scaleTime().range([0, width]),
@@ -65,12 +73,13 @@ var area = d3.area()
     .y0(height)
     .y1(function(d) { return y(d.submissions); });
 
-var areat = d3.area()
-    .curve(d3.curveMonotoneX)
-    .x(function(d) { return x(d.date); })
-    .y0(height)
-    .y1(function(d) { return y(d.submissions*0.2); });
+// var areat = d3.area()
+//     .curve(d3.curveMonotoneX)
+//     .x(function(d) { return x(d.date); })
+//     .y0(height)
+//     .y1(function(d) { return y(d.submissions*0.2); });
 
+//area2 shows the brush box below the actual chart
 var area2 = d3.area()
     .curve(d3.curveMonotoneX)
     .x(function(d) { return x2(d.date); })
@@ -91,7 +100,7 @@ var context = svg.append("g")
     .attr("class", "context")
     .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
-d3.csv("soccer_sub.csv", type, function(error, data) {
+d3.csv("soccer_sub_test.csv", type, function(error, data) {
   if (error) throw error;
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
@@ -104,30 +113,35 @@ d3.csv("soccer_sub.csv", type, function(error, data) {
       .attr("class", "area")
       .attr("d", area);
 
-  focus.append("path")
-      .datum(data)
-      .attr("class", "areat")
-      .attr("d", areat);
+  // focus.append("path")
+  //     .datum(data)
+  //     .attr("class", "areat")
+  //     .attr("d", areat);
 
   focus.append("rect")
       .attr("class", "zoom")
       .attr("width", width)
       .attr("height", height)
-      .style("fill", "rgba(255,0,0,.25)")
+      //.style("fill", "rgba(255,0,0,.25)")
       .call(zoom);
 
+//function(d) {if (d.match !== ''){
   focus.selectAll(".dot")
       .data(data)
       .enter().append("circle")
       .attr("class", "dot")
       .attr("r", 3.5)
+      .attr("fill", function(d) {
+            if (d.match !== '') {return "black"}
+            else 	{ return "none" }
+        ;})
       .attr("cx", function(d) { return x(d.date);})
       .attr("cy", function(d) { return y(d.submissions);})
       .on("mouseover", function(d) {
           div.transition()
               .duration(200)
-              .style("opacity", .9);
-          div	.html(d.date + "<br/>")
+              .style("opacity", 1);
+          div	.html(d.match)
               .style("left", (d3.event.pageX) + "px")
               .style("top", (d3.event.pageY - 28) + "px");
           })
@@ -136,7 +150,7 @@ d3.csv("soccer_sub.csv", type, function(error, data) {
               .duration(500)
               .style("opacity", 0);
       });
-
+//};}
   focus.append("g")
       .attr("class", "axis axis--x")
       .attr("transform", "translate(0," + height + ")")
@@ -191,7 +205,7 @@ function zoomed() {
 function update() {
   focus.select(".area").attr("d", area);
   focus.select(".axis--x").call(xAxis);
-  focus.select(".areat").attr("d", areat);
+  //focus.select(".areat").attr("d", areat);
 
   focus.selectAll(".dot")
     .attr("cx", function(d) { return x(d.date);})
@@ -201,7 +215,7 @@ function update() {
 
 function type(d) {
   d.date = parseDate(d.date);
-  d.post_title =
+  d.match = d.match
   d.submissions = parseFloat(d.submissions);
   return d;
 }
